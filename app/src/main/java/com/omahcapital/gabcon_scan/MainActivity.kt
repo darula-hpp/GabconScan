@@ -1,5 +1,8 @@
 package com.omahcapital.gabcon_scan
 
+import okhttp3.*
+import java.io.IOException
+
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -19,6 +22,8 @@ import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.Executors
 
 
@@ -28,6 +33,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var messageTextView: TextView
     private var mediaPlayer: MediaPlayer? = null
     private var scanned = false
+    private val client = OkHttpClient()
 
     // Settings UI
     private lateinit var settingsLayout: LinearLayout
@@ -259,7 +265,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleScannedBarcode(barcode: Barcode) {
         scanned = true
-        Log.d("Barcode", "Scanned: ${barcode.rawValue}")
+        val scannedValue = barcode.rawValue ?: ""
+
+        Log.d("Barcode", "Scanned: $scannedValue")
+
+        // Send to server
+        sendBarcodeToServer(scannedValue)
+
         runOnUiThread {
             messageTextView.text = "Item added"
             mediaPlayer?.start()
@@ -268,6 +280,56 @@ class MainActivity : AppCompatActivity() {
             scanned = false
             runOnUiThread { messageTextView.text = "Scan barcode" }
         }, 1000)
+    }
+
+    private fun sendBarcodeToServer(barcodeValue: String) {
+        val serverIp = serverEditText.text.toString().trim()
+        val port = portEditText.text.toString().trim()
+
+        if (serverIp.isEmpty() || port.isEmpty()) {
+            Log.e("Network", "Server IP or port not set. Cannot send barcode.")
+            return
+        }
+
+        // Example: http://<serverIp>:<port>/scan
+        val url = "http://$serverIp:$port/itemReceiver"
+
+        // Build JSON payload
+        val json = """
+            {
+                "barcode": "$barcodeValue"
+            }
+        """.trimIndent()
+
+        val requestBody = json.toRequestBody("application/json; charset=utf-8".toMediaType())
+
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("Network", "Failed to send barcode to server", e)
+                runOnUiThread {
+                    Toast.makeText(this@MainActivity, "Failed to send data to server", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (!it.isSuccessful) {
+                        Log.e("Network", "Server error: ${it.code}")
+                        runOnUiThread {
+                            Toast.makeText(this@MainActivity, "Server error: ${it.code}", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Log.d("Network", "Barcode sent successfully")
+                        // You can add UI updates here if needed
+                    }
+                }
+            }
+        })
     }
 
     private fun allPermissionsGranted() =
