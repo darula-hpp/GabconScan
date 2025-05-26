@@ -116,22 +116,39 @@ class MainActivity : AppCompatActivity() {
             setPadding(50, 50, 50, 50)
         }
 
+        // Server IP label
+        val serverLabel = TextView(this).apply {
+            text = "Server IP/Domain"
+            setTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+            textSize = 16f
+        }
+        settingsLayout.addView(serverLabel)
+
         // Server IP input
         serverEditText = EditText(this).apply {
-            hint = "Server IP"
+            hint = "e.g., 192.168.1.100"
             setTextColor(ContextCompat.getColor(context, android.R.color.white))
             setHintTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
             setSingleLine()
         }
         settingsLayout.addView(serverEditText, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
             bottomMargin = 20
         })
 
+        // Port label
+        val portLabel = TextView(this).apply {
+            text = "Port"
+            setTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+            textSize = 16f
+        }
+        settingsLayout.addView(portLabel)
+
         // Port input
         portEditText = EditText(this).apply {
-            hint = "Port"
+            hint = "e.g., 8080"
             setTextColor(ContextCompat.getColor(context, android.R.color.white))
             setHintTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
             setSingleLine()
@@ -139,9 +156,11 @@ class MainActivity : AppCompatActivity() {
         }
         settingsLayout.addView(portEditText, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
             bottomMargin = 40
         })
+
 
         // Save button
         saveButton = Button(this).apply {
@@ -150,6 +169,7 @@ class MainActivity : AppCompatActivity() {
         settingsLayout.addView(saveButton)
 
         root.addView(settingsLayout)
+        window.statusBarColor = ContextCompat.getColor(this, android.R.color.black)
 
         setContentView(root)
 
