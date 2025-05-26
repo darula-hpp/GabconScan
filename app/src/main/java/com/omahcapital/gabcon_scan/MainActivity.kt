@@ -54,7 +54,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         val screenWidth = resources.displayMetrics.widthPixels
-        val previewWidth = (screenWidth * 0.9).toInt()
+        val previewWidth = (screenWidth * 0.95).toInt()
         val previewHeight = (previewWidth / 3) // 3:1 ratio
 
         previewView = PreviewView(this).apply {
