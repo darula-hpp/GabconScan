@@ -1,13 +1,15 @@
 package com.omahcapital.gabcon_scan
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.util.Log
+import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
-import android.widget.TextView
+import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
@@ -18,7 +20,6 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
-import android.view.Gravity
 
 
 class MainActivity : AppCompatActivity() {
@@ -27,6 +28,21 @@ class MainActivity : AppCompatActivity() {
     private lateinit var messageTextView: TextView
     private var mediaPlayer: MediaPlayer? = null
     private var scanned = false
+
+    // Settings UI
+    private lateinit var settingsLayout: LinearLayout
+    private lateinit var serverEditText: EditText
+    private lateinit var portEditText: EditText
+    private lateinit var saveButton: Button
+
+    private var clickCount = 0
+    private var lastClickTime = 0L
+    private val CLICK_INTERVAL_MS = 1000L // reset click count after 1 second of inactivity
+    private val REQUIRED_CLICKS = 5
+
+    private val PREFS_NAME = "ScannerSettings"
+    private val PREF_SERVER = "server_ip"
+    private val PREF_PORT = "server_port"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +57,21 @@ class MainActivity : AppCompatActivity() {
                 previewHeight
             ).apply {
                 gravity = Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL
+            }
+            setBackgroundColor(ContextCompat.getColor(context, android.R.color.black))
+        }
+
+        // Setup click listener for 5 clicks
+        previewView.setOnClickListener {
+            val currentTime = System.currentTimeMillis()
+            if (currentTime - lastClickTime > CLICK_INTERVAL_MS) {
+                clickCount = 0 // reset count if too slow
+            }
+            lastClickTime = currentTime
+            clickCount++
+            if (clickCount >= REQUIRED_CLICKS) {
+                clickCount = 0
+                showSettings()
             }
         }
 
@@ -58,12 +89,61 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Root FrameLayout holds preview and message and settings
         val root = FrameLayout(this).apply {
             setBackgroundColor(ContextCompat.getColor(context, android.R.color.black))
             addView(previewView)
             addView(messageTextView)
         }
 
+        // Create settings layout (initially invisible)
+        settingsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(ContextCompat.getColor(context, android.R.color.black))
+            visibility = View.GONE
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            ).apply {
+                setMargins(50, 200, 50, 200)
+            }
+            setPadding(50, 50, 50, 50)
+        }
+
+        // Server IP input
+        serverEditText = EditText(this).apply {
+            hint = "Server IP"
+            setTextColor(ContextCompat.getColor(context, android.R.color.white))
+            setHintTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+            setSingleLine()
+        }
+        settingsLayout.addView(serverEditText, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = 20
+        })
+
+        // Port input
+        portEditText = EditText(this).apply {
+            hint = "Port"
+            setTextColor(ContextCompat.getColor(context, android.R.color.white))
+            setHintTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+            setSingleLine()
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        }
+        settingsLayout.addView(portEditText, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = 40
+        })
+
+        // Save button
+        saveButton = Button(this).apply {
+            text = "Save"
+        }
+        settingsLayout.addView(saveButton)
+
+        root.addView(settingsLayout)
 
         setContentView(root)
 
@@ -74,6 +154,57 @@ class MainActivity : AppCompatActivity() {
         } else {
             requestPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
+
+        loadSettings()
+
+        saveButton.setOnClickListener {
+            saveSettings()
+        }
+    }
+
+    private fun showSettings() {
+        runOnUiThread {
+            settingsLayout.visibility = View.VISIBLE
+            previewView.visibility = View.GONE
+            messageTextView.visibility = View.GONE
+        }
+    }
+
+    private fun hideSettings() {
+        runOnUiThread {
+            settingsLayout.visibility = View.GONE
+            previewView.visibility = View.VISIBLE
+            messageTextView.visibility = View.VISIBLE
+        }
+    }
+
+    private fun loadSettings() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val server = prefs.getString(PREF_SERVER, "")
+        val port = prefs.getString(PREF_PORT, "")
+
+        serverEditText.setText(server)
+        portEditText.setText(port)
+    }
+
+    private fun saveSettings() {
+        val server = serverEditText.text.toString().trim()
+        val port = portEditText.text.toString().trim()
+
+        if (server.isEmpty() || port.isEmpty()) {
+            Toast.makeText(this, "Please enter server IP and port", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putString(PREF_SERVER, server)
+            putString(PREF_PORT, port)
+            apply()
+        }
+
+        Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show()
+        hideSettings()
     }
 
     private fun startCamera() {
